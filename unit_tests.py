@@ -213,6 +213,8 @@ def AVLTree_unittest():
     #custom tests
 
 def graph_tests():
+    print("Testing class Graph...")
+    print("\tTesting class Node...")
     #vertex
     v1 = Node(1)
     v2 = Node(2)
@@ -222,7 +224,7 @@ def graph_tests():
     assert v1 == v3
     assert v1 != v2
     assert hash(v1) == hash(v3)
-
+    print("\tTesting core graph functionality (simple)...")
     g = Graph()
     g.insertNode(1)
     g.insertNode(2)
@@ -241,13 +243,16 @@ def graph_tests():
     iter3 = g.__iter__(style='breadth-first', source=1)
 
     for v in [1,2,3,4]:
-        assert Node(v) == next(iter1)
+        assert v == next(iter1)
     for v in [1,2,3,4]:
-        assert Node(v) == next(iter2)
+        assert v == next(iter2)
     for v in [1,2,3,4]:
-        assert Node(v) == next(iter3)  
+        assert v == next(iter3)  
+    g.deleteEdge(4,2)
+    assert 2 not in g.adjacent(4)
 
     #more complicated graph
+    print("\tTesting core graph functionality (complex)...")
     g2 = Graph()
     g2.insert(1)
     g2.insert(2)
@@ -267,12 +272,101 @@ def graph_tests():
 
     iter4 = g2.__iter__()
     for v in [1,2,5,4,3,6]:
-        assert Node(v) == next(iter4)
+        assert v == next(iter4)
+
+    print("\tTesting topologicalSort()...")
+    g3 = Graph()
+    g3.insert(0)
+    g3.insert(1)
+    g3.insert(2)
+    g3.insert(3)
+    g3.insert(4)
+    g3.insert(5)
+    g3.insert(6)
+    g3.insertEdge(1,5)
+    g3.insertEdge(2,5)
+    g3.insertEdge(3,5)
+    g3.insertEdge(1,2)
+    g3.insertEdge(2,3)
+    g3.insertEdge(3,4)
+    g3.insertEdge(4,5)
+
+    top = g3.topologicalSort()
+    for v in g3.adj.keys():
+        for neighbor in g3.adj[v]:
+            assert indexOf(top, v) < indexOf(top, neighbor)
+
+    g3.insertEdge(5,1)
+    top = g3.topologicalSort()
+    assert top == []
+
+    print("\tTesting minSpanTree()...")
+    g4 = Graph()
+    g4.insert(1)
+    g4.insert(2)
+    g4.insert(3)
+    g4.insert(4)
+    g4.insert(5)
+    g4.insert(6)
+    g4.insert(1,2)
+    g4.insert(1,3)
+    g4.insert(3,4)
+    g4.insert(2,4)
+    g4.insert(4,1)
+    g4.insert(1,1)
+    g4.insert(5,4)
+    g4.insert(6,5)
+    g4.insert(2,6)
+    g4.insert(0)
+    minTree = g4.minSpanTree(1)
+    assert minTree.get(1) == None
+    assert minTree.get(2) == 1
+    assert minTree.get(3) == 1
+    assert minTree.get(4) == 2 or minTree.get(4) == 3
+    assert minTree.get(5) == 6
+    assert minTree.get(6) == 2
+    assert minTree.get(0) == None
+    print("Testing class WeightedGraph...")
+    wg = WeightedGraph()
+    print("\tTesting core graph functionality(simple)...")
+    for i in range(1,7):
+        wg.insert(i)
+    wg.insert(1,2)
+    wg.insert(1,3)
+    wg.insert(3,4,4)
+    wg.insert(2,4,3)
+    wg.insert(2,5,-1)
+    wg.insert(5,6,-1)
+    wg.insert(5,4,2)
+    wg.insert(0)
+    wg.insert(5,1)
+    assert 1 in wg.adjacent(5)
+    wg.deleteEdge(5,1)
+    assert 1 not in wg.adjacent(5)
+    wg.insert(1,1,2)
+    assert 1 in wg.adjacent(1)
+    wg.deleteEdge(1,1)
+    assert 1 not in wg.adjacent(1)
+    print("\tTesting minPathTree()...")
+    wg.insert(2,5,0)
+    wg.insert(5,6,0)
+    D = wg.minPathTree(1)
+    assert D[0] == float('inf')
+    assert D[1] == 0
+    assert D[2] == 1
+    assert D[3] == 1
+    assert D[4] == 3
+    assert D[5] == 1
+    assert D[6] == 1
+    print(D)
+    print("Graph tests complete.")
+
 
 def heap_tests():
+    print("Testing Heap datastructure...")
     h = Heap()
     heap = []
-
+    print("Attempting smash tests...")
     for i in range(1000):
         r = random.randint(0,10)
         h.insert(r)
@@ -314,11 +408,11 @@ def heap_tests():
         except AssertionError:
             print("Failed on i = " + str(i) + ", for values (" + str(a)+ ', ' + str(b) + ').')
             return
-    
+    print("Tests succeeded. Exiting.")
 def test_all():
     for obj in locals():
         if type(obj) == function:
             obj()
 
 if __name__ == '__main__':
-    BST_unittest()
+    graph_tests()

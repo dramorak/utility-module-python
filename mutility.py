@@ -1,19 +1,5 @@
 #My Basic utility (mutility) functions
 
-""" 
-    Property of Alex Inglis (dramorak) 
-    Created 3/08/2021
-    last updated: 18/06/2022
-
-    todo: 
-        read_stream isn't general enough, it's obviously intended for use on network buffers
-    notes: 
-        - "yield from <stream> 
-          is syntactic sugar for: 
-          while <stream>.nonempty():
-              yield next(<stream>)
-        
-"""
 from datetime import datetime
 from collections import deque
 
@@ -23,9 +9,9 @@ import sys
 
 #Useful error definition
 class Heap:
-    def __init__(self, cmp=lambda x,y : x < y):
+    def __init__(self, key=lambda x,y : x < y):
         self.repr = []
-        self.cmp = cmp #lambda x,y: returns true when x < y
+        self.key = key #lambda x,y: returns true when x < y
     
     def __str__(self):
         return str(self.repr)
@@ -47,7 +33,7 @@ class Heap:
     def insert(self, el):
         self.repr.append(el)
         i = len(self.repr) - 1
-        while i > 0 and self.cmp(self.repr[i], self.repr[(i - 1) // 2]):
+        while i > 0 and self.key(self.repr[i], self.repr[(i - 1) // 2]):
             self.repr[(i - 1) // 2], self.repr[i] = self.repr[i], self.repr[(i - 1) // 2]
             i = (i - 1) // 2
 
@@ -57,9 +43,9 @@ class Heap:
         right = 2 * i + 2
         
         smallest = i
-        if left < len(self.repr) and self.cmp(self.repr[left], self.repr[i]):
+        if left < len(self.repr) and self.key(self.repr[left], self.repr[i]):
             smallest = left
-        if right < len(self.repr) and self.cmp(self.repr[right], self.repr[smallest]):
+        if right < len(self.repr) and self.key(self.repr[right], self.repr[smallest]):
             smallest = right
         
         if smallest != i:
@@ -615,7 +601,7 @@ class Graph():
         self.adj = {}
 
         for v in vertices:
-            self.insertNode(Node(v))
+            self.insertNode(v)
 
         for s,d in edges:
             self.insertEdge(s,d)
@@ -633,10 +619,10 @@ class Graph():
         Raises:
             KeyError: An exception if the key is already being used.
         """
-        if self.adj.get(Node(key)) != None:
+        if self.adj.get(key) != None:
             raise KeyError('[NON-UNIQUE KEY] graph already contains a node with that key.')
         
-        self.adj[Node(key)] = []
+        self.adj[key] = []
     
     def insertEdge(self, key1, key2):
         """Inserts a new edge into the graph. If the edge already exists, does nothing.
@@ -651,14 +637,14 @@ class Graph():
         Analysis:
             UpperBound: O(E)
         """
-        if self.adj.get(Node(key1)) == None or self.adj.get(Node(key2)) == None:
-            raise KeyError('[NON-EXISTENT KEY] cannot create an edge between non existent nodes.')
+        if self.adj.get(key1) == None or self.adj.get(key2) == None:
+            raise KeyError(f'[NON-EXISTENT KEY] cannot create an edge between non existent nodes. [key1:{key1}, key2:{key2}]')
 
-        for k in self.adj[Node(key1)]:
-            if k.key == key2:
+        for k in self.adj[key1]:
+            if k == key2:
                 return
 
-        self.adj[Node(key1)].append(Node(key2))
+        self.adj[key1].append(key2)
 
     def deleteEdge(self, key1, key2):
         """Deletes edge from graph.
@@ -673,14 +659,11 @@ class Graph():
         Analysis:
             UpperBound: O(E)
         """
-        if self.get(Node(key1)) == None or self.get(Node(key2)) == None:
-            raise KeyError('[NON-EXISTENT KEY] cannot create an edge between non existent nodes.')
-        
-        node1 = Node(key1)
-        node2 = Node(key2)
+        if self.adj.get(key1) == None or self.adj.get(key2) == None:
+            raise KeyError(f'[NON-EXISTENT KEY] cannot create an edge between non existent nodes.[key1:{key1}, key2:{key2}')
 
         try:
-            self.adj[node1].remove(node2)
+            self.adj[key1].remove(key2)
         except ValueError:
             return
     
@@ -694,10 +677,10 @@ class Graph():
             KeyError: an exception if the key is not valid.
         """
 
-        if self.adj.get(Node(key)) == None:
+        if self.adj.get(key) == None:
             raise KeyError('key not found')
         
-        return [n.key for n in self.adj[Node(key)]]
+        return self.adj[key]
         
     def __iter__(self, source=None, style='depth-first'):
         """Returns an iterable of the graph which goes through every vertex.
@@ -744,10 +727,10 @@ class Graph():
             if source == None:
                 raise Exception('breadth-first search requires a source node.')
             from collections import deque
-            source = Node(source)
 
-            def _h():
+            def bfs():
                 colors = {}
+                colors[source] = 0
                 for v in self.adj.keys():
                     colors[v] = 1
 
@@ -762,7 +745,134 @@ class Graph():
                             queue.append(neighbor)
                             colors[neighbor] = 0
                     colors[n] = -1
-            return _h()
+            return bfs()
+    def minSpanTree(self, source):
+        """Returns the minimum spanning tree of the graph, from source, as a dictionary.
+        Args:
+            source: a vertex in the graph
+        Raises:
+            KeyError: an exception if key is not a valid key
+        Returns:
+            D: a dictionary of (key,parent) values, where 'parent' is the next node up the chain in the min-span tree."""
+        D = {}
+        q = deque()
+        q.append(source)
+        colors = {}
+        for v in self.adj.keys():
+            colors[v] = 1
+        colors[source] = 0
+        while q:
+            n = q.popleft()
+            for neighbor in self.adj[n]:
+                if colors[neighbor] == 1:
+                    q.append(neighbor)
+                    colors[neighbor] = 0
+                    D[neighbor] = n
+            colors[n] = -1
+        return D
+            
+    def topologicalSort(self):
+        """Returns a topological sort of the graph, if it exists. Returns [] otherwise."""
+        order = []
+        colors = {}
+        def dfs(node):
+            colors[node] = 0
+            for neighbor in self.adj[node]:
+                if colors[neighbor] == 1:
+                    dfs(neighbor)
+                elif colors[neighbor] == 0:
+                    raise TypeError("[TypeError] topologicalSort only works on DAGs")
+            colors[node] = -1
+            order.append(node)
+
+        #set all nodes to the color 'white'
+        for n in self.adj.keys():
+            colors[n] = 1
+
+        for n in self.adj.keys():
+            if colors[n] == 1:
+                try:
+                    dfs(n)
+                except TypeError:
+                    return []
+        order.reverse()
+        return order
+
+class WeightedGraph(Graph):
+    """A weighted graph is a normal graph who's edges also have an associated weight value."""
+    def __init__(self, vertices=[], edges=[], weights=[]):
+        """Initializes a new weighted graph."""
+        Graph.__init__(self,vertices, edges)
+        self.weights = {}
+
+        for s,d,w in weights:
+            self.insertEdge(s,d,w)
+
+    def insert(self, key1=None, key2=None, weight=None):
+        if key2==None:
+            Graph.insertNode(self, key1)
+        elif weight == None:
+            self.insertEdge(key1, key2, 1)
+        else:
+            self.insertEdge(key1,key2,weight)
+
+    def insertEdge(self, key1, key2, weight):
+        """Inserts new edge into graph. Overwrites the existing edge if there is one. 
+        Args:
+            key1: key of source vertex.
+            key2: key of destination vertex.
+            weight: weight of the edge.
+        Raises:
+            ValueError: An exception if key1, key2, or both, are not in the graph.
+        """
+        #insert key1, key2 as normal.
+        Graph.insertEdge(self, key1, key2)
+        #insert weight as well
+        self.weights[(key1,key2)] = weight
+    
+    def deleteEdge(self, key1, key2):
+        """Deletes edge from graph.
+        
+        Args:
+            key1: Source vertex
+            key2: Destination vertex.
+        
+        Raises:
+            KeyError: An exception if key1 or key2 aren't present in the graph.
+        
+        Analysis:
+            UpperBound: O(E)
+        """
+        Graph.deleteEdge(self, key1, key2)
+        self.weights[(key1, key2)] = None
+    
+    def minPathTree(self, source):
+        """Returns the min-path spanning tree from source as a dictionary. Assumes weights are non negative; not defined for negative weight graphs. May hang.
+        Args:
+            source: A vertex in the graph
+        Raises:
+            KeyError: An exception if the vertex is not in the graph.
+        Returns:
+            A dictionary of (key, distance) pairs representing the distance from source to key.
+        """
+        D = {}
+        for v in self.adj.keys():
+            D[v] = float('inf')
+
+        h = Heap(key=lambda x,y: x[0] < y[0]) #h contains all nodes that are currently under consideration for the next farthest away.
+        h.insert((0, source))
+        while len(h) != 0:
+            #pop the minimum element off
+            d, n = h.popMin()
+            #If we're looking at a node that's already been seen before, we're done.
+            if D.get(n) <= d:
+                break
+            #otherwise, we've found the shortest path to d.
+            D[n] = d
+            #append all neighbors to the heap
+            for neighbor in self.adj[n]:
+                h.insert((d + self.weights[(n, neighbor)], neighbor))
+        return D
 
 class Rational():
     """A class for computations on rational numbers."""
@@ -814,7 +924,7 @@ class Rational():
         return diff.numerator == 0
 
     def rationalize(n):
-        """Class method. Takes a number and returns its rational representation (or at least rational number very close to it).
+        """Class method. Takes a number and (attempts to) return a rational representation.
         Args:
             n: A rational number. 
         """
@@ -1136,21 +1246,21 @@ def permutations(lst):
         distribute(lst[0], a)
         return r + a
 
-def index_of(lst, item):
+def indexOf(lst, item):
     for x in range(0, len(lst)):
         if lst[x] == item:
             return x
     raise Exception('[INDEX NOT FOUND] list does not contain that element.')
 
 #throws error if item exists in list already.
-nindex_of = invert_error(index_of, Exception('[DUPLICATE ELEMENT] list already contains that element.'))
+nindexOf = invert_error(indexOf, Exception('[DUPLICATE ELEMENT] list already contains that element.'))
 
 def remove(lst, item):
     #removes item from list
     #if item is not in list, do nothing.
 
     try:
-        i = index_of(lst, item)
+        i = indexOf(lst, item)
     except:
         return
     lst.pop(i)
@@ -1247,73 +1357,4 @@ def fuzzy_equals(x,y, error = 0.000001):
     return abs(x-y) < error
 
 if __name__ == "__main__":
-    #testing
-    """
-    lst = [1,2,3,4,5,6]
-
-    print('Test: element not in list')
-    nindex_of(lst, 7)
-    print('Test: element is in list')
-    nindex_of(lst, 6)
-    
-
-    lst = [1,2,3]
-    remove(lst, 2)
-    remove(lst, 4)
-    print(lst)
-    
-    g = create_graph(lambda x: x**2, list(mrange(-5,5,0.05)))
-    import matplotlib.pyplot as plt
-    plt.plt([x[0] for x in g], [x[1] for x in g])
-    plt.show() 
-    """
-    """
-    f1 = lambda x: x**2
-    f2 = lambda x: x
-    f3 = lambda x: math.sqrt(x)
-    f4 = lambda x: 2**x
-
-    if1 = inverse(f1)
-    if2 = inverse(f2)
-    if3 = inverse(f3)
-    if4 = inverse(f4)
-
-    print(if1(4)) # 2
-    print(if2(2)) # 2
-    print(if3(math.sqrt(2))) # 2
-    print(if4(4)) # 2
-    """
-    """
-    lst = LinkedList()
-    a = ListNode(1)
-    b = ListNode(2)
-    c = ListNode(3)
-    d = ListNode(4)
-    lst.insert(a)
-    lst.insert(b)
-    lst.insert(c)
-    lst.insert(d)
-    print(lst)
-    lst.delete(b)
-    lst.delete(d)
-    print(lst)
-    """
-    """
-    stck = Stack()
-    print(stck)
-    stck.push(1)
-    print(stck)
-    stck.pop()
-
-    q = Queue(3)
-    print(q.queue)
-    q.enqueue(1)
-    q.enqueue(2)
-    q.enqueue(3)
-    print(q)
-
-    q.dequeue()
-    q.dequeue()
-    q.dequeue()
-    print(q)
-    """
+    pass
