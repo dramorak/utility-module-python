@@ -846,6 +846,51 @@ class WeightedGraph(Graph):
         Graph.deleteEdge(self, key1, key2)
         self.weights[(key1, key2)] = None
     
+    def bellmanFord(self, source):
+        """Returns the min-path spanning tree as a dictionary.
+        Args:
+            source: a vertex in the graph
+        Raises:
+            KeyError: An exception if the key is not in the graph
+            AttributeError: An exception if the graph has a negative weight cycle.
+        Returns:
+            A dictionary of (key, distance) values representing the distance from source to key.
+        Analysis:
+            O(|V| * |E|) runtime.
+            bellman-Ford is a simple algorithm for finding the min-span tree of a general weighted graph. 
+            Why does it work ?
+                -Every shortest path is of the form <s, v1, v2, ... , d>
+                
+        """
+    
+        if self.adj.get(source) == None:
+            raise KeyError(f"[NON-EXISTENT KEY] key {source} does not exist in the graph.")
+            
+        D = {}
+        #init distances
+        for v in self.adj.keys():
+            D[v] = float('inf')
+        D[source] = 0
+
+        def relax(u,v):
+            if D[v] > D[u] + self.weights.get((u,v)):
+                D[v] = D[u] + self.weights.get((u,v))
+        
+        #do this process |V| - 1 times.
+        for i in range(1, len(self.adj)):
+            #iterate through edges
+            for k in self.adj.keys():
+                for d in self.adj[k]:
+                    relax(k, d)
+
+        #testing for negative cycle
+        for k in self.adj.keys():
+            for d in self.adj[k]:
+                if D[d] > D[k] + self.weights.get((k,d)):
+                    raise AttributeError("[NEGATIVE CYCLE] graphs with negative cycles don't have a well defined min-path tree.")
+        #if all goes well, return the shorest-paths dict.
+        return D
+
     def minPathTree(self, source):
         """Returns the min-path spanning tree from source as a dictionary. Assumes weights are non negative; not defined for negative weight graphs. May hang.
         Args:
@@ -854,7 +899,12 @@ class WeightedGraph(Graph):
             KeyError: An exception if the vertex is not in the graph.
         Returns:
             A dictionary of (key, distance) pairs representing the distance from source to key.
+        Analysis:
+            O(|V| * lg(|E|) + |E|)
         """
+        if self.adj.get(source) == None:
+            raise KeyError(f"[NON-EXISTENT KEY] key {source} does not exist in the graph.")
+
         D = {}
         for v in self.adj.keys():
             D[v] = float('inf')

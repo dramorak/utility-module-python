@@ -338,6 +338,7 @@ def graph_tests():
     wg.insert(2,5,-1)
     wg.insert(5,6,-1)
     wg.insert(5,4,2)
+    wg.insert(4,1,0)
     wg.insert(0)
     wg.insert(5,1)
     assert 1 in wg.adjacent(5)
@@ -347,9 +348,24 @@ def graph_tests():
     assert 1 in wg.adjacent(1)
     wg.deleteEdge(1,1)
     assert 1 not in wg.adjacent(1)
+    print("\tTesting bellmanFord()...")
+    D = wg.bellmanFord(1)
+    assert D[0] == float('inf')
+    assert D[1] == 0
+    assert D[2] == 1
+    assert D[3] == 1
+    assert D[4] == 2
+    assert D[5] == 0
+    assert D[6] == -1
+    wg.insertEdge(5,1,-1)
+    try:
+        wg.bellmanFord(1)
+    except AttributeError:
+        pass
     print("\tTesting minPathTree()...")
     wg.insert(2,5,0)
     wg.insert(5,6,0)
+    wg.deleteEdge(5,1)
     D = wg.minPathTree(1)
     assert D[0] == float('inf')
     assert D[1] == 0
@@ -358,7 +374,6 @@ def graph_tests():
     assert D[4] == 3
     assert D[5] == 1
     assert D[6] == 1
-    print(D)
     print("Graph tests complete.")
 
 
