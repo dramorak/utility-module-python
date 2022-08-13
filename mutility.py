@@ -9,51 +9,99 @@ import sys
 
 #Useful error definition
 class Heap:
-    def __init__(self, key=lambda x,y : x < y):
+    def __init__(self, cmp=lambda x,y : x < y):
         self.repr = []
-        self.key = key #lambda x,y: returns true when x < y
-    
-    def __str__(self):
-        return str(self.repr)
+        self.cmp = cmp #lambda x,y: returns true when x < y
 
-    def getMin(self, alt=None):
+        #ATF key implementation. (gotta keep backwards compatibility so random things don't break.)
+        self.keys = {} #hash table of keys mapping to 
+        self._id = 0
+
+    def __str__(self):
+        return str([x[1] for x in self.repr])
+
+    def getMin(self, alt=None, return_key = False):
         if len(self.repr) == 0:
             return alt
-        return self.repr[0]
+
+        if return_key:
+            return self.repr[0]
+        return self.repr[0][1]
     
-    def popMin(self):
+    def getVal(self, key):
+        if self.keys.get(key) == None:
+            return None
+        return self.repr[self.keys[key]][1]
+
+    def popMin(self, return_key = False):
         if len(self.repr) == 1:
-            return self.repr.pop()
+            if return_key:
+                return self.repr.pop()
+            return self.repr.pop()[1]
 
         m = self.repr[0]
+        del self.keys[m[0]]
         self.repr[0] = self.repr.pop()
         self._heapify(0)
-        return m
-    
-    def insert(self, el):
-        self.repr.append(el)
-        i = len(self.repr) - 1
-        while i > 0 and self.key(self.repr[i], self.repr[(i - 1) // 2]):
-            self.repr[(i - 1) // 2], self.repr[i] = self.repr[i], self.repr[(i - 1) // 2]
-            i = (i - 1) // 2
 
-            
+        if return_key:
+            return m
+        return m[1]
+    
+    def insert(self, el, key=None):
+        if key == None:
+            key = self._get_next_id()
+
+        if self.keys.get(key) != None:
+            raise Exception(f"[DUPLICATE KEY] cannot insert duplicate key <{key}>")
+
+        self.repr.append([key, el])
+        i = len(self.repr) - 1
+        self.keys[key] = i
+        self._bubble(i)
+
+    def decreaseKey(self, key, val):
+        #changes item with key <key> to new val.
+        if self.keys.get(key) == None:
+            raise KeyError(f"[INVALID KEY] key <{key}> not found.")
+        i = self.keys[key]
+        self.repr[i][1] = val
+
+        self._bubble(i)        
+        
+    def _bubble(self, i):
+        #bubble up tree to fix placement of i
+        parent = (i - 1) // 2
+
+        if i > 0 and self.cmp(self.repr[i][1], self.repr[parent][1]):
+            #swap
+            parent_key, i_key = self.repr[parent][0], self.repr[i][0]
+            self.repr[i], self.repr[parent] = self.repr[parent], self.repr[i]
+            self.keys[parent_key], self.keys[i_key] = i, parent
+            self._bubble(parent)
+
     def _heapify(self, i):
         left = 2 * i + 1
         right = 2 * i + 2
         
         smallest = i
-        if left < len(self.repr) and self.key(self.repr[left], self.repr[i]):
+        if left < len(self.repr) and self.cmp(self.repr[left][1], self.repr[i][1]):
             smallest = left
-        if right < len(self.repr) and self.key(self.repr[right], self.repr[smallest]):
+        if right < len(self.repr) and self.cmp(self.repr[right][1], self.repr[smallest][1]):
             smallest = right
         
         if smallest != i:
+            self.keys[self.repr[smallest][0]] = i
+            self.keys[self.repr[i][0]] = smallest
             self.repr[i], self.repr[smallest] = self.repr[smallest] , self.repr[i]
             self._heapify(smallest)
 
     def __len__(self):
         return len(self.repr)
+
+    def _get_next_id(self):
+        self._id += 1
+        return self._id - 1
 
 class UnderflowError(Exception):
     """Error class for underflow exception."""
@@ -892,7 +940,7 @@ class WeightedGraph(Graph):
         return D
 
     def minPathTree(self, source):
-        """Returns the min-path spanning tree from source as a dictionary. Assumes weights are non negative; not defined for negative weight graphs. May hang.
+        """Returns the min-path spanning tree from source as a dictionary. Assumes weights are non negative; not defined for negative weight graphs. 
         Args:
             source: A vertex in the graph
         Raises:
@@ -900,7 +948,8 @@ class WeightedGraph(Graph):
         Returns:
             A dictionary of (key, distance) pairs representing the distance from source to key.
         Analysis:
-            O(|V| * lg(|E|) + |E|)
+            O(|E|lg|E|) runtime. 
+            
         """
         if self.adj.get(source) == None:
             raise KeyError(f"[NON-EXISTENT KEY] key {source} does not exist in the graph.")
@@ -909,20 +958,59 @@ class WeightedGraph(Graph):
         for v in self.adj.keys():
             D[v] = float('inf')
 
-        h = Heap(key=lambda x,y: x[0] < y[0]) #h contains all nodes that are currently under consideration for the next farthest away.
+        h = Heap(cmp=lambda x,y: x[0] < y[0]) #h contains all nodes that are currently under consideration for the next farthest away.
         h.insert((0, source))
         while len(h) != 0:
             #pop the minimum element off
             d, n = h.popMin()
             #If we're looking at a node that's already been seen before, we're done.
-            if D.get(n) <= d:
-                break
-            #otherwise, we've found the shortest path to d.
-            D[n] = d
-            #append all neighbors to the heap
-            for neighbor in self.adj[n]:
-                h.insert((d + self.weights[(n, neighbor)], neighbor))
+            if D.get(n) > d:
+                #otherwise, we've found the shortest path to d.
+                D[n] = d
+                #append all neighbors to the heap
+                for neighbor in self.adj[n]:
+                    h.insert((d + self.weights[(n, neighbor)], neighbor))
         return D
+
+    def dijkstra(self, source):
+        """Returns the min-path spanning tree from source as a dictionary. Assumes weights are non negative; not defined for negative weight graphs.
+        Args:
+            source: A vertex in the graph
+        Raises:
+            KeyError: An exception if the vertex is not in the graph.
+        Returns:
+            A dictionary of (key, distance) pairs representing the distance from source to key.
+        Analysis:
+            O()
+        TODO: Implement a heap that supports key changing. I hear fibonacci heaps are great for this.
+        """
+        #pseudo:
+        #   single-source-init - set distances to inifinity, distance to source is 0
+        #   S = {}
+        #   Q = Heap(G.V) -vertices in G, ordered by distance from source (init infinity)
+        #   while Q:
+        #       v = popmin
+        #       S.append(v)
+        #       for n in neighbors of v:
+        #           relax(v,n,w)  -- also include key changes in heap W during relax step
+
+        #create priority queue
+        def relax(source, dest):
+            if q.getVal(dest) != None and q.getVal(dest) > S[source] + self.weights.get((source, dest)):
+                q.decreaseKey(dest, S[source] + self.weights.get((source, dest)))
+
+        q = Heap()
+        for v in self.adj.keys():
+            q.insert(float('inf'), v)
+        q.decreaseKey(source, 0)
+        S = {}
+        while len(q) > 0:
+            min_key, min_val = q.popMin(return_key = True)
+            S[min_key] = min_val
+            for neighbor in self.adj[min_key]:
+                relax(min_key, neighbor)
+        
+        return S
 
 class Rational():
     """A class for computations on rational numbers."""

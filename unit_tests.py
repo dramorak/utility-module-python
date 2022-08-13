@@ -366,7 +366,17 @@ def graph_tests():
     wg.insert(2,5,0)
     wg.insert(5,6,0)
     wg.deleteEdge(5,1)
+    wg.insert(1,5,2)
     D = wg.minPathTree(1)
+    assert D[0] == float('inf')
+    assert D[1] == 0
+    assert D[2] == 1
+    assert D[3] == 1
+    assert D[4] == 3
+    assert D[5] == 1
+    assert D[6] == 1
+    print("\tTesting dijkstra()...")
+    D = wg.dijkstra(1)
     assert D[0] == float('inf')
     assert D[1] == 0
     assert D[2] == 1
@@ -423,6 +433,25 @@ def heap_tests():
         except AssertionError:
             print("Failed on i = " + str(i) + ", for values (" + str(a)+ ', ' + str(b) + ').')
             return
+    print("Testing decreaseKey()...")
+    h = Heap()
+    heap = []
+    for i in range(100000):
+        h.insert(1001, i)
+        el = random.randint(0, 1000)
+        heapq.heappush(heap, el)
+        h.decreaseKey(i, el)
+        assert h.getVal(i) == el
+
+    for i in range(100000):
+        try:
+            a = h.popMin()
+            b = heapq.heappop(heap)
+            assert a == b
+        except AssertionError:
+            print("Failed on i = " + str(i) + ", for values (" + str(a)+ ', ' + str(b) + ').')
+            return
+
     print("Tests succeeded. Exiting.")
 def test_all():
     for obj in locals():
