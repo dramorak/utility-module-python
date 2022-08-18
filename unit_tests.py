@@ -274,6 +274,27 @@ def graph_tests():
     for v in [1,2,5,4,3,6]:
         assert v == next(iter4)
 
+    g2_5 = Graph()
+    g2_5.insert(1)
+    g2_5.insert(2)
+    g2_5.insert(3)
+    g2_5.insert(1,2)
+    g2_5.insert(1,3)
+    g2_5.insert(2,3)
+    g2_5.insert(2,1)
+    g2_5.insert(3,1)
+    g2_5.insert(3,2)
+    assert g2_5.adjacent(1) == [2,3]
+    assert 1 in g2_5.adjacent(2)
+    assert 1 in g2_5.adjacent(3)
+    g2_5.deleteNode(1)
+    try:
+        g2_5.adjacent(1)
+    except KeyError:
+        pass
+    assert g2_5.adjacent(2) == [3]
+    assert g2_5.adjacent(3) == [2]
+
     print("\tTesting topologicalSort()...")
     g3 = Graph()
     g3.insert(0)
@@ -360,7 +381,7 @@ def graph_tests():
     wg.insertEdge(5,1,-1)
     try:
         wg.bellmanFord(1)
-    except AttributeError:
+    except TypeError:
         pass
     print("\tTesting minPathTree()...")
     wg.insert(2,5,0)
@@ -384,11 +405,60 @@ def graph_tests():
     assert D[4] == 3
     assert D[5] == 1
     assert D[6] == 1
+    wg3 = WeightedGraph()
+    wg3.insert(1)
+    wg3.insert(2)
+    wg3.insert(3)
+    wg3.insert(4)
+    wg3.insert(1,2,-1)
+    wg3.insert(2,3,-1)
+    wg3.insert(1,4,-1)
+    w = {(1,2):0, (2,3):0, (1,4):1}
+    D = wg3.dijkstra(1,w)
+    assert D[1] == 0
+    assert D[2] == 0
+    assert D[3] == 0
+    assert D[4] == 1
+    print("\tTesting _reweight()...")
+    wg2 = WeightedGraph()
+    wg2.insert(1)
+    wg2.insert(2)
+    wg2.insert(3)
+    wg2.insert(4)
+    wg2.insert(1,2,1)
+    wg2.insert(2,4,2)
+    wg2.insert(4,3,-1)
+    wg2.insert(3,1,1)
+    wg2.insert(1,4,1)
+    D = wg2.bellmanFord(1)
+    assert D[1] == 0
+    assert D[2] == 1
+    assert D[4] == 1
+    assert D[3] == 0
+    wp, h = wg2._reweight()
+    for i in range(1,5):
+        for j in range(1,5):
+            assert wp.get((i,j), 1) >= 0
+    print("\tTesting APSP()...")
+    D = wg2.APSP()
+    A = {1:{1:0, 2:1, 3:0, 4:1}, 2:{1:2, 2:0, 3:1, 4:2}, 3:{1:1, 2:2, 3:0, 4:2}, 4:{1:0, 2:1, 3:-1, 4:0}}
+    for i in [1,2,3,4]:
+        for j in [1,2,3,4]:
+            try:
+                assert D[i][j] == A[i][j]
+            except AssertionError:
+                print(f"Failed for i = {i}, j = {j}")
+                raise AssertionError
     print("Graph tests complete.")
 
 
 def heap_tests():
     print("Testing Heap datastructure...")
+    h = Heap()
+    h.insert(float('inf'), 3)
+    h.insert(1, 4)
+    assert h.popMin() == 1
+    assert h.popMin() == float('inf')
     h = Heap()
     heap = []
     print("Attempting smash tests...")

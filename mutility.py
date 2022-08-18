@@ -41,7 +41,10 @@ class Heap:
 
         m = self.repr[0]
         del self.keys[m[0]]
+
+        #replace bottom with top
         self.repr[0] = self.repr.pop()
+        self.keys[self.repr[0][0]] = 0
         self._heapify(0)
 
         if return_key:
@@ -715,6 +718,22 @@ class Graph():
         except ValueError:
             return
     
+    def deleteNode(self, key):
+        #Deletes node corresponding to key. 
+        #Raises KeyError if key doesn't exist in graph.
+        if self.adj.get(key) == None:
+            raise KeyError(f'[NON-EXISTENT KEY] cannot create an edge between non existent nodes.[key:{key}]')
+
+        #Delete all incoming edges
+        for v in self.adj.keys():
+            try:
+                self.adj[v].remove(key)
+            except ValueError:
+                continue
+        #Delete all outgoing edges and node
+        del self.adj[key]
+    
+        
     def adjacent(self, key):
         """Returns a list of keys adjacent to given key.
         
@@ -856,6 +875,13 @@ class WeightedGraph(Graph):
         for s,d,w in weights:
             self.insertEdge(s,d,w)
 
+    def weight(self, key1, key2):
+        """Returns weight of edge between key1, key2 if there is one. Returns float('inf') otherwise."""
+        if self.adj.get(key1) == None or self.adj.get(key2) == None:
+            raise KeyError
+        
+        return self.weights.get((key1, key2), float('inf'))
+
     def insert(self, key1=None, key2=None, weight=None):
         if key2==None:
             Graph.insertNode(self, key1)
@@ -894,7 +920,7 @@ class WeightedGraph(Graph):
         Graph.deleteEdge(self, key1, key2)
         self.weights[(key1, key2)] = None
     
-    def bellmanFord(self, source):
+    def bellmanFord(self, source, w = None):
         """Returns the min-path spanning tree as a dictionary.
         Args:
             source: a vertex in the graph
@@ -910,10 +936,12 @@ class WeightedGraph(Graph):
                 -Every shortest path is of the form <s, v1, v2, ... , d>
                 
         """
-    
+
         if self.adj.get(source) == None:
             raise KeyError(f"[NON-EXISTENT KEY] key {source} does not exist in the graph.")
-            
+        if w == None:
+            w = self.weights
+
         D = {}
         #init distances
         for v in self.adj.keys():
@@ -921,8 +949,8 @@ class WeightedGraph(Graph):
         D[source] = 0
 
         def relax(u,v):
-            if D[v] > D[u] + self.weights.get((u,v)):
-                D[v] = D[u] + self.weights.get((u,v))
+            if D[v] > D[u] + w.get((u,v)):
+                D[v] = D[u] + w.get((u,v))
         
         #do this process |V| - 1 times.
         for i in range(1, len(self.adj)):
@@ -934,8 +962,8 @@ class WeightedGraph(Graph):
         #testing for negative cycle
         for k in self.adj.keys():
             for d in self.adj[k]:
-                if D[d] > D[k] + self.weights.get((k,d)):
-                    raise AttributeError("[NEGATIVE CYCLE] graphs with negative cycles don't have a well defined min-path tree.")
+                if D[d] > D[k] + w.get((k,d)):
+                    raise TypeError("[NEGATIVE CYCLE] graphs with negative cycles don't have a well defined min-path tree.")
         #if all goes well, return the shorest-paths dict.
         return D
 
@@ -972,7 +1000,7 @@ class WeightedGraph(Graph):
                     h.insert((d + self.weights[(n, neighbor)], neighbor))
         return D
 
-    def dijkstra(self, source):
+    def dijkstra(self, source, w=None):
         """Returns the min-path spanning tree from source as a dictionary. Assumes weights are non negative; not defined for negative weight graphs.
         Args:
             source: A vertex in the graph
@@ -995,9 +1023,12 @@ class WeightedGraph(Graph):
         #           relax(v,n,w)  -- also include key changes in heap W during relax step
 
         #create priority queue
+        if w == None:
+            w = self.weights
+
         def relax(source, dest):
-            if q.getVal(dest) != None and q.getVal(dest) > S[source] + self.weights.get((source, dest)):
-                q.decreaseKey(dest, S[source] + self.weights.get((source, dest)))
+            if q.getVal(dest) != None and q.getVal(dest) > S[source] + w.get((source, dest)):
+                q.decreaseKey(dest, S[source] + w.get((source, dest)))
 
         q = Heap()
         for v in self.adj.keys():
@@ -1011,6 +1042,53 @@ class WeightedGraph(Graph):
                 relax(min_key, neighbor)
         
         return S
+
+    def APSP(self):
+        """All pairs shortest paths algorithm. Returns the shortest path between all pairs of vertices.
+        Raises: 
+            TypeError: An exception if the graph contains a negative weight cycle.
+        Returns:
+            Dict[(vertex, Dict[(vertex, distance)])] - returns D, a dictionary of dictionaries. D[vertex1][vertex2] = distance, the distance from vertex1 to vertex2, and the predecessor of v2 on that path.
+        """
+
+        #create a new weight function
+        w,h  = self._reweight()
+        #apply dijkstra's algorithm on each node in the graph
+        D = {}
+        for source in self.adj.keys():
+            distances = self.dijkstra(source, w)
+            #revert distances back to real values.
+            for dest in distances.keys():
+                distances[dest] += h[dest] - h[source]
+            #put into dictionary
+            D[source] = distances
+        #return
+        return D
+
+    def _reweight(self):
+        #produces a new weighting function, w', with the following properties:
+        #   1: if p is a shortest path in (G,w), then p is also a shortest path in (G,w')
+        #   2: w'(u,v) > 0 for all u,v in G
+        #If such a reweighting does not exist, throws error
+
+        #make slightly different graph
+        self.insertNode('__s')
+        for v in self.adj.keys():
+            if v != '__s':
+                self.insertEdge('__s', v, 0)
+        
+        #apply bellman ford to get shortest paths
+        h = self.bellmanFord('__s')
+        #clean up graph by deleting '__s'
+        self.deleteNode('__s')
+
+        #create new weight mapping
+        w = {}
+        for v in self.adj.keys():
+            for e in self.adj[v]:
+                w[(v,e)] = self.weights.get((v,e)) + h[v] - h[e]
+        
+        return (w, h)
 
 class Rational():
     """A class for computations on rational numbers."""
